@@ -27,7 +27,7 @@ const saveLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } c
 
 // ── Google Sheets API ──────────────────────────────────────────────────────
 async function apiGet() {
-  const res = await fetch(API_URL);
+  const res = await fetch(API_URL + "?t=" + Date.now(), { redirect: "follow" });
   const json = await res.json();
   if (!json.ok) throw new Error("讀取失敗");
   return (json.data || []).map(row => ({
@@ -38,17 +38,15 @@ async function apiGet() {
 }
 
 async function apiAdd(entry) {
-  await fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify({ action: "add", ...entry }),
-  });
+  const form = new FormData();
+  form.append("payload", JSON.stringify({ action: "add", ...entry }));
+  await fetch(API_URL, { method: "POST", body: form, redirect: "follow", mode: "no-cors" });
 }
 
 async function apiDelete(id) {
-  await fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify({ action: "delete", id }),
-  });
+  const form = new FormData();
+  form.append("payload", JSON.stringify({ action: "delete", id }));
+  await fetch(API_URL, { method: "POST", body: form, redirect: "follow", mode: "no-cors" });
 }
 
 // ── Receipt scan via Claude API ────────────────────────────────────────────
