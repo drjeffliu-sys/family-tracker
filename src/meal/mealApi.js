@@ -38,24 +38,28 @@ const SUGGESTION_SCHEMA = {
   },
 };
 
-const SYSTEM = `你是一位幫忙家庭每日備餐的料理助手，家庭成員是兩位大人、兩位小孩。
+const SYSTEM = `你是一位幫忙家庭每日備餐的料理助手，家庭成員是兩位大人、兩位小孩（5 歲和 8 歲）。
 - 份量一律以「兩大兩小」計算，食材要寫出具體份量（克、顆、湯匙）。
 - 只能使用使用者列出的廚房設備；優先用掉「快過期」的食材。
 - 以現有食材為主，若缺少關鍵食材請列在 missing（越少越好，常見調味料可假設家裡有：鹽、糖、醬油、油、胡椒）。
 - kidTips：寫給小孩的調整（不辣、切小塊、挑刺、減鹽、份量等）。
 - prepAhead：可以前一晚或週末先備好的部分，沒有就寫「無」。
 - 參考使用者過去的料理紀錄：評分高的可以變化出現，最近幾天做過的避免重複。
+- 「家裡的拿手菜」代表全家的口味偏好與常用調味料（例如市售醬汁），可以直接推薦或做變化。
 - 全部使用繁體中文。`;
 
 export async function suggestMeals({ apiKey, equipment, ingredients, history, meal, count, notes }) {
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
 
-  const recent = history.slice(0, 30).map(h => `${h.date} ${h.name}${h.rating ? `（${h.rating}★）` : ""}`);
+  // 有日期的是實際做過的紀錄；沒有日期的是匯入的過往食譜
+  const recent = history.filter(h => h.date).slice(0, 30).map(h => `${h.date} ${h.name}${h.rating ? `（${h.rating}★）` : ""}`);
+  const repertoire = history.filter(h => !h.date).map(h => `${h.name}${h.recipe?.summary ? `：${h.recipe.summary}` : ""}`);
   const prompt = [
     `今天要準備：${meal}，請給我 ${count} 個不同的建議。`,
     `廚房設備：${equipment.join("、") || "（未設定）"}`,
     `現有食材：\n${ingredients.map(i => `- ${i.name}${i.qty ? ` ${i.qty}` : ""}${i.expiry ? `（${i.expiry} 到期）` : ""}`).join("\n") || "（未設定）"}`,
     `最近料理紀錄：\n${recent.join("\n") || "（尚無）"}`,
+    repertoire.length ? `家裡的拿手菜：\n${repertoire.join("\n")}` : "",
     notes?.trim() ? `額外需求：${notes.trim()}` : "",
   ].filter(Boolean).join("\n\n");
 

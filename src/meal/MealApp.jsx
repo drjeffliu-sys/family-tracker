@@ -7,13 +7,14 @@ const LS_INGR = "meal_ingredients_v1";
 const LS_HISTORY = "meal_history_v1";
 const LS_KEY = "meal_api_key_v1";
 
-const EQUIP_PRESETS = ["電鍋", "瓦斯爐 / 電磁爐", "平底鍋", "炒鍋", "湯鍋", "烤箱", "氣炸鍋", "微波爐", "壓力鍋 (Instant Pot)", "慢燉鍋", "果汁機 / 調理機", "蒸籠", "烤盤"];
+const EQUIP_PRESETS = ["電鍋", "瓦斯爐 / 電磁爐", "平底鍋", "炒鍋", "湯鍋", "烤箱", "氣炸鍋", "微波爐", "壓力鍋 (Instant Pot)", "慢燉鍋", "果汁機 / 調理機", "蒸籠", "烤盤", "鑄鐵鍋"];
 const MEALS = ["早餐", "午餐便當", "晚餐", "週末備料"];
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const daysUntil = (d) => Math.round((new Date(d) - new Date(todayStr())) / 86400000);
 const loadLS = (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
 const saveLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const mergeById = (prev, incoming) => [...prev, ...incoming.filter(x => !prev.some(p => p.id === x.id))];
 
 // state + localStorage 同步
 function usePersisted(key, fallback) {
@@ -127,9 +128,10 @@ export default function MealApp() {
     reader.onload = (ev) => {
       try {
         const d = JSON.parse(ev.target.result);
-        if (Array.isArray(d.equipment)) setEquipment(d.equipment);
-        if (Array.isArray(d.ingredients)) setIngredients(d.ingredients);
-        if (Array.isArray(d.history)) setHistory(d.history);
+        // 合併匯入：不覆蓋現有資料，相同 id 的略過
+        if (Array.isArray(d.equipment)) setEquipment(prev => [...new Set([...prev, ...d.equipment])]);
+        if (Array.isArray(d.ingredients)) setIngredients(prev => mergeById(prev, d.ingredients));
+        if (Array.isArray(d.history)) setHistory(prev => mergeById(prev, d.history));
         showToast("匯入完成 ✓");
       } catch { showToast("檔案格式錯誤"); }
       e.target.value = "";
@@ -267,7 +269,7 @@ export default function MealApp() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ flex: 1, cursor: "pointer" }} onClick={() => setOpenHist(openHist === h.id ? null : h.id)}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#0F172A" }}>{h.name}</div>
-                    <div style={{ fontSize: 10, color: "#94A3B8" }}>{h.date} · {h.meal} · 共做過 {timesCooked[h.name]} 次</div>
+                    <div style={{ fontSize: 10, color: "#94A3B8" }}>{h.date || "過往食譜"} · {h.meal} · 共做過 {timesCooked[h.name]} 次</div>
                   </div>
                   <Stars value={h.rating} onChange={n => updateHist(h.id, { rating: n })} />
                   <button style={S.delBtn} onClick={() => setHistory(prev => prev.filter(x => x.id !== h.id))} aria-label="刪除">✕</button>
@@ -299,7 +301,7 @@ export default function MealApp() {
               <button style={S.ghostBtn} onClick={() => importRef.current?.click()}>↑ 匯入 JSON</button>
               <input ref={importRef} type="file" accept="application/json" style={{ display: "none" }} onChange={importJSON} />
             </div>
-            <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 6 }}>可用來換手機或在兩台裝置間搬資料。</div>
+            <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 6 }}>匯入會合併到現有資料，不會覆蓋。可用來換手機或在兩台裝置間搬資料。</div>
           </div>
         </>
       )}
